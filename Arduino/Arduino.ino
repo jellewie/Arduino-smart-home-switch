@@ -2,17 +2,6 @@
   Program written by JelleWho
   Board: https://dl.espressif.com/dl/package_esp32_index.json
   Sketch from: https://github.com/jellewie/Arduino-smart-home-switch
-
-  Example config for MilightHub https://github.com/sidoh/esp8266_milight_hub
-    Path_A1  = "/gateways/0xF001/rgb_cct/1"                              Device Id="0xF001", remote Type="rgb_cct", Group = "1"
-    Json_A1  = "{'commands':['toggle']}"                                 What command which button sends (Example of toggle)
-    Json_A2  = "{'brightness':60,'color':'255,50,10','state':'On'}",     (Example of RGB)
-    Json_A3  = "{'brightness':255,'color_temp':999,'state':'On'}",       (Example of CC/WW)
-    Json_A4  = "{'brightness':255,'color_temp':1,'state':'On'}"          For more see https://sidoh.github.io/esp8266_milight_hub/branches/1.10.6/ Please note not all commands might be supported by your bulb
-  
-  Example config for Domoticz switch
-    Path_A1  = "/json.htm?type=command&param=switchlight&idx=999&switchcmd=Toggle&level=0&passcode"   (Example of toggle) idx=999
-    Path_A2  = "/json.htm?type=command&param=setcolbrightnessvalue&idx=999&color={%22m%22:3,%22t%22:0,%22r%22:255,%22g%22:254,%22b%22:253,%22cw%22:0,%22ww%22:0}&brightness=100   (Example of RGB) %22 is the URL encode for a quote " (idx=999, r:255, g:254, b:253, brightness=100)
 */
 #if !defined(ESP32)
 #error "Please check if the 'DOIT ESP32 DEVKIT V1' board is selected, which can be downloaded at https://dl.espressif.com/dl/package_esp32_index.json"
@@ -80,31 +69,32 @@ void setup() {
 #endif //SerialEnabled
     ButtonPressedID = 0;                                        //Set to NOT pressed by default, will be overwritten
     static unsigned long LastTimeA = 0;                         //Set to 0, so the first call is FALSE
-    if (TickEveryXms(&LastTimeA, 50)) {}                        //Wait here for 50ms (so an error blink would look nice)
-    //Returns the button states in bits; Like 0000<button1><b2><b3><b4> where 1 is HIGH and 0 is LOW
-    //Example '00001001' = Buttons 1 and 4 are HIGH (Note we count from LSB)
-    byte ButtonID = 0;
-    for (byte i = 0; i < AB; i++) {
-      ButtonID = ButtonID << 1;                                 //Move bits 1 to the left (it’s like *2)
-      Button_Time Value = ButtonA[i].CheckButton();
-      if (Value.Pressed) {
-        ButtonID += 1;                                          //Flag this button as on
-        if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonA[i].PIN_LED, !digitalRead(ButtonA[i].PIN_LED));
-      } else if (ButtonA[i].PIN_LED > 0)
-        digitalWrite(ButtonA[i].PIN_LED, LOW);
-    }
-    if (RotationB != UNUSED) {
+    if (TickEveryXms(&LastTimeA, 50)) {                         //Wait here for 50ms (so an error blink would look nice)
+      //Returns the button states in bits; Like 0000<button1><b2><b3><b4> where 1 is HIGH and 0 is LOW
+      //Example '00001001' = Buttons 1 and 4 are HIGH (Note we count from LSB)
+      byte ButtonID = 0;
       for (byte i = 0; i < AB; i++) {
         ButtonID = ButtonID << 1;                               //Move bits 1 to the left (it’s like *2)
-        Button_Time Value = ButtonB[i].CheckButton();
+        Button_Time Value = ButtonA[i].CheckButton();
         if (Value.Pressed) {
           ButtonID += 1;                                        //Flag this button as on
-          if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonB[i].PIN_LED, !digitalRead(ButtonB[i].PIN_LED));
-        } else if (ButtonB[i].PIN_LED > 0)
-          digitalWrite(ButtonB[i].PIN_LED, LOW);
+          if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonA[i].PIN_LED, !digitalRead(ButtonA[i].PIN_LED));
+        } else if (ButtonA[i].PIN_LED > 0)
+          digitalWrite(ButtonA[i].PIN_LED, LOW);
       }
+      if (RotationB != UNUSED) {
+        for (byte i = 0; i < AB; i++) {
+          ButtonID = ButtonID << 1;                             //Move bits 1 to the left (it’s like *2)
+          Button_Time Value = ButtonB[i].CheckButton();
+          if (Value.Pressed) {
+            ButtonID += 1;                                      //Flag this button as on
+            if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonB[i].PIN_LED, !digitalRead(ButtonB[i].PIN_LED));
+          } else if (ButtonB[i].PIN_LED > 0)
+            digitalWrite(ButtonB[i].PIN_LED, LOW);
+        }
+      }
+      ButtonPressedID = ButtonID;                               //Get the button state, here 1 is HIGH in the form of '0000<Button 1><2><3><4> '
     }
-    ButtonPressedID = ButtonID;                                 //Get the button state, here 1 is HIGH in the form of '0000<Button 1><2><3><4> '
   }
   for (byte i = 0; i < AB; i++) {
     digitalWrite(ButtonA[i].PIN_LED, LOW);                      //Make sure all LED's are off

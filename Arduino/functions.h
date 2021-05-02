@@ -1,3 +1,4 @@
+/* Written by JelleWho https://github.com/jellewie */
 enum {UNUSED, NORMAL, LEFT, UPSIDE_DOWN, RIGHT, UNK};
 String RotationNames[] = {"UNUSED", "NORMAL", "LEFT", "UPSIDE_DOWN", "RIGHT", "UNK"};
 const byte Rotation_Amount = sizeof(RotationNames) / sizeof(RotationNames[0]); //Why filling this in if we can automate that? :)
@@ -41,23 +42,6 @@ String ConvertRotationToString(byte IN) {
     return RotationNames[IN];
   return "UNK";
 }
-void HandleNotFound() {
-#ifdef SerialEnabled
-  Serial.println("Method: " + String(server.method()) + " URI: " + server.uri());
-  for (int i = 0; i < server.args(); i++)
-    Serial.println("arg '" + String(server.argName(i)) + "' = '" + String(server.arg(i)) + "'");
-#endif //SerialEnabled
-}
-void Blink_Amount(byte _LED, int _DelayMS, byte _amount) {
-  for (byte i = 0; i < _amount; i++) {
-    digitalWrite(_LED, !digitalRead(_LED)); //Blink LED
-    delay(_DelayMS);
-  }
-  digitalWrite(_LED, LOW);
-}
-
-
-
 bool TickEveryXms(unsigned long *_LastTime, unsigned long _Delay) {
   //With overflow, can be adjusted, no overshoot correction, true when (Now < _LastTime + _Delay)
   /* Example:   static unsigned long LastTime;
@@ -75,17 +59,6 @@ void BlinkEveryMs(byte _LED, int _Delay) {
   if (TickEveryXms(&LastTimeA, _Delay))
     digitalWrite(_LED, !digitalRead(_LED));                       //Blink LED
 }
-String macToStr(const byte* _mac) {
-  String _result;
-  for (int i = 0; i < 6; ++i) {
-    _result += String(_mac[i], 16);
-    if (i < 5)
-      _result += ':';
-  }
-  return _result;
-}
-
-
 
 #ifdef SerialEnabled
 String ResetReasonToString(byte Reason) {
