@@ -1,4 +1,4 @@
 *OldVersions/
 *.lck
+*.BIN
 _Local/
-Arduino/z_unused.h
