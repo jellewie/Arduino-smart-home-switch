@@ -7,11 +7,11 @@
 //#define Button_SerialEnabled                                  //Disable to not send Serial debug feedback
 
 #ifndef Time_StartLongPressMS
-#define Time_StartLongPressMS 3000                              //After howmuch Ms we should consider a press a long press
+#define Time_StartLongPressMS 2000                              //After howmuch Ms we should consider a press a long press
 #endif //Time_StartLongPressMS
 
 #ifndef Time_ESPrestartMS
-#define Time_ESPrestartMS 15000                                 //After howmuch Ms we should restart the ESP, note this is only triggered on released, or on a CheckButtons() call
+#define Time_ESPrestartMS 10000                                 //After howmuch Ms we should restart the ESP, note this is only triggered on released, or on a CheckButtons() call
 #endif //Time_ESPrestartMS
 
 #ifndef Time_StartDoublePress
@@ -30,20 +30,21 @@ struct Button_Time {
   bool Pressed;                                                 //If button is pressed
   bool PressedLong;                                             //If timePressed > LongPress
   bool DoublePress;                                             //If this press is a double press
-  bool PressEnded;                                              //If button was pressed but isn't
+  bool PressEnded;                                              //If button was pressed but isn't, basically (!Pressed)
   int PressedTime;                                              //How long the button is pressed (in MS)
 };
 class Button {
   private:                                                      //Private variables/functions
+    bool OldState;
     bool HighState = HIGH;
     bool StartLongFlagged;
     bool StartReleaseFlagged = true;
-    unsigned long ButtonStartTime;                              //the button pressed time (to calculate long press)
-    unsigned long LastButtonEndTime;                            //To detect double presses
+    unsigned long ButtonStartTime = 0;                          //the button pressed time (to calculate long press)
+    unsigned long LastButtonEndTime = 0;                        //To detect double presses
     Button_Time State;
   public:                                                       //public variables/functions (these can be acces from the normal sketch)
     byte PIN_Button;                                            //To store the pointer to pins of this instance of button
-    byte PIN_LED;                           //^ but optional (0=unused)
+    byte PIN_LED;                                               //^ but optional (0=unused)
     Button(const byte _PIN_Button, const byte ButtonPinMode = INPUT, const byte _PIN_LED = 0); //Called to initialize
     Button_Time CheckButton();                                  //Call to recieve button state
     void Pinchange();                                           //Called with interupt on pin change

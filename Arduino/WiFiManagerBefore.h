@@ -9,7 +9,7 @@
    DO NOT USE char(") in any of input stings on the webpage, use char(') if you need it. char(") will be replaced
    These are the declaired triggered and function names: you can declare over these to overwrite them but be carefull
       server.on("/",        WiFiManager_handle_Connect);
-      server.on("/ip",      WiFiManager_handle_Connect);     //Just as backup, so the "/" can be overwritten by user 
+      server.on("/ip",      WiFiManager_handle_Connect);     //Just as backup, so the "/" can be overwritten by user
       server.on("/setup",   WiFiManager_handle_Settings);
       server.on("/ota",     WiFiManager_OTA_handle_uploadPage);
       server.on("/update",  HTTP_POST, WiFiManager_OTA_handle_update, WiFiManager_OTA_handle_update2);
@@ -24,12 +24,12 @@
 //===========================================================================
 // Things that need to be defined before including "WiFiManager.h"
 //===========================================================================
-#define WiFiManager_SerialEnabled                               //Define to send Serial debug feedback
+//#define WiFiManager_SerialEnabled                             //Define to send Serial debug feedback
 
 #define WiFiManagerUser_Set_Value_Defined                       //Define we want to hook into WiFiManager
 #define WiFiManagerUser_Get_Value_Defined                       //^
-//#define WiFiManagerUser_Status_Start_Defined                    //^
-//#define WiFiManagerUser_Status_Done_Defined                     //^
+#define WiFiManagerUser_Status_Start_Defined                    //^
+#define WiFiManagerUser_Status_Done_Defined                     //^
 #define WiFiManagerUser_Status_Blink_Defined                    //^
 #define WiFiManagerUser_Status_StartAP_Defined                  //^
 #define WiFiManagerUser_HandleAP_Defined                        //^
@@ -40,7 +40,7 @@
 #define WiFiManagerUser_VariableNames_Defined                               //Define that we want to use the custom user variables (Dont forget to settup WiFiManager_VariableNames and WiFiManager_Settings)
 const String WiFiManager_VariableNames[] {"SSID", "Password", "name", "Hub IP", "Hub port",
   "Rotation A", "Path A1", "Path A2", "Path A3", "Path A4", "Json A1", "Json A2", "Json A3", "Json A4",
-  "Rotation B", "Path A1", "Path A2", "Path A3", "Path A4", "Json B1", "Json B2", "Json B3", "Json B4"
+  "Rotation B", "Path B1", "Path B2", "Path B3", "Path B4", "Json B1", "Json B2", "Json B3", "Json B4"
 };
 const int EEPROM_size = 512;                                    //Max Amount of chars for 'SSID(16) + PASSWORD(16) + extra custom vars(?) +1(NULL)' defaults to 33
 

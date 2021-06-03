@@ -1,5 +1,5 @@
 /* Written by JelleWho https://github.com/jellewie */
-enum {UNUSED, NORMAL, LEFT, UPSIDE_DOWN, RIGHT, UNK};
+enum {UNUSED, NORMAL, RIGHT, UPSIDE_DOWN, LEFT, UNK};
 String RotationNames[] = {"UNUSED", "NORMAL", "LEFT", "UPSIDE_DOWN", "RIGHT", "UNK"};
 const byte Rotation_Amount = sizeof(RotationNames) / sizeof(RotationNames[0]); //Why filling this in if we can automate that? :)
 
@@ -60,6 +60,9 @@ void BlinkEveryMs(byte _LED, int _Delay) {
     digitalWrite(_LED, !digitalRead(_LED));                       //Blink LED
 }
 
+
+
+
 #ifdef SerialEnabled
 String ResetReasonToString(byte Reason) {
   //https://github.com/espressif/esp-idf/blob/release/v3.0/components/esp32/include/rom/rtc.h#L80
@@ -99,8 +102,8 @@ String DoRequestReasonToString(byte Reason) {
     case 4  : return "REQ_PAGE_NOT_FOUND";        break;
     case 5  : return "REQ_SETUP_REQUIRED";        break;
     default : {
-        if (Reason => 10 and Reason <= 19)
-          return "UNK respoce=" + String(Reason) + "xx";
+        if (Reason >= 10 and Reason <= 19)
+          return "UNK response=" + String(Reason - 10) + "xx";
       } break;
   }
   return "UNK:" + String(Reason);

@@ -1,7 +1,5 @@
-/*
-  Program written by JelleWho
-  Board: https://dl.espressif.com/dl/package_esp32_index.json
-  Sketch from: https://github.com/jellewie/Arduino-smart-home-switch
+/*Written by JelleWho https://github.com/jellewie
+  TODO:  https://github.com/jellewie/Arduino-smart-home-switch/issues
 */
 #if !defined(ESP32)
 #error "Please check if the 'DOIT ESP32 DEVKIT V1' board is selected, which can be downloaded at https://dl.espressif.com/dl/package_esp32_index.json"
@@ -11,10 +9,12 @@
 
 #ifdef SerialEnabled
 #include <rom/rtc.h>                                            //This is for rtc_get_reset_reason
+#define OTA_EnabledOnBoot
 #define WiFiManager_SerialEnabled
 //#define Button_SerialEnabled
 //#define SerialEnabled_Speed             //SP:
 //#define SerialEnabled_Convert           //CV:
+#define SerialEnabled_CheckButton
 #endif //SerialEnabled
 
 #include "WiFiManagerBefore.h"                                  //Define what options to use/include or to hook into WiFiManager
@@ -25,14 +25,15 @@
 char Hub_IP[16] = "192.168.255.255";                            //The url to connect to
 int Hub_Port = 80;
 const byte AB = 4;                                              //Amount_Buttons
-Button ButtonA[AB] = {{34, INPUT_PULLUP, 21}, {35, INPUT_PULLUP, 19}, {32, INPUT_PULLUP, 18}, {33, INPUT_PULLUP, 5}}; //Bunch up the 4 buttons to be 1 switch set (Only used for reference pin pares, not which command is connected to which pin)
-Button ButtonB[AB] = {{26, INPUT_PULLUP, 23}, {27, INPUT_PULLUP, 22}, {14, INPUT_PULLUP, 4}, {12, INPUT_PULLUP, 15}}; // ^
+Button ButtonA[AB] = {{32, INPUT_PULLUP, 21}, {33, INPUT_PULLUP, 19}, {25, INPUT_PULLUP, 18}, {26, INPUT_PULLUP, 5}}; //Bunch up the 4 buttons to be 1 switch set (Only used for reference pin pares, not which command is connected to which pin)
+Button ButtonB[AB] = {{27, INPUT_PULLUP, 23}, {14, INPUT_PULLUP, 22}, {12, INPUT_PULLUP, 4}, {13, INPUT_PULLUP, 15}}; // ^
 String Path_A[AB] = {"", "", "", ""};                           //SOFT_SETTING
 String Path_B[AB] = {"", "", "", ""};                           // ^
 String Json_A[AB] = {"", "", "", ""};                           //SOFT_SETTING
 String Json_B[AB] = {"", "", "", ""};                           // ^
 byte RotationA = NORMAL;                                        //SOFT_SETTING Rotation of the PCB seen from the case
 byte RotationB = UNUSED;                                        // ^           RIGHT=PCB 90° clockwise to case
+const byte BootButtonsWaitMs = 100;                             //Wait for a period of this length on boot for the buttons to be NOT pressed
 
 #include "WiFiManagerLater.h"                                   //Define options of WiFiManager (can also be done before), but WiFiManager can also be called here (example for DoRequest)
 
@@ -62,39 +63,41 @@ void setup() {
   //===========================================================================
   //Wait for all buttons to be NOT pressed
   //===========================================================================
-  byte ButtonPressedID = 1;
-  while (ButtonPressedID > 0) {
-#ifdef SerialEnabled
-    Serial.println("Waiting on a button(s) " + String(ButtonPressedID, BIN) + " before starting up");
-#endif //SerialEnabled
-    ButtonPressedID = 0;                                        //Set to NOT pressed by default, will be overwritten
-    static unsigned long LastTimeA = 0;                         //Set to 0, so the first call is FALSE
-    if (TickEveryXms(&LastTimeA, 50)) {                         //Wait here for 50ms (so an error blink would look nice)
-      //Returns the button states in bits; Like 0000<button1><b2><b3><b4> where 1 is HIGH and 0 is LOW
-      //Example '00001001' = Buttons 1 and 4 are HIGH (Note we count from LSB)
-      byte ButtonID = 0;
-      for (byte i = 0; i < AB; i++) {
-        ButtonID = ButtonID << 1;                               //Move bits 1 to the left (it’s like *2)
-        Button_Time Value = ButtonA[i].CheckButton();
-        if (Value.Pressed) {
-          ButtonID += 1;                                        //Flag this button as on
-          if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonA[i].PIN_LED, !digitalRead(ButtonA[i].PIN_LED));
-        } else if (ButtonA[i].PIN_LED > 0)
-          digitalWrite(ButtonA[i].PIN_LED, LOW);
+  unsigned long WaitUntil = millis() + BootButtonsWaitMs;
+  while (WaitUntil > millis()) {
+    byte ButtonStatesA = 0, ButtonStatesB = 0;
+    for (byte i = 0; i < AB; i++) {
+      if (ButtonA[i].CheckButton().Pressed) {
+        bitSet(ButtonStatesA, i);
+        WaitUntil = millis() + BootButtonsWaitMs;
       }
       if (RotationB != UNUSED) {
-        for (byte i = 0; i < AB; i++) {
-          ButtonID = ButtonID << 1;                             //Move bits 1 to the left (it’s like *2)
-          Button_Time Value = ButtonB[i].CheckButton();
-          if (Value.Pressed) {
-            ButtonID += 1;                                      //Flag this button as on
-            if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonB[i].PIN_LED, !digitalRead(ButtonB[i].PIN_LED));
-          } else if (ButtonB[i].PIN_LED > 0)
-            digitalWrite(ButtonB[i].PIN_LED, LOW);
+        if (ButtonB[i].CheckButton().Pressed) {
+          bitSet(ButtonStatesB, i);
+          WaitUntil = millis() + BootButtonsWaitMs;
         }
       }
-      ButtonPressedID = ButtonID;                               //Get the button state, here 1 is HIGH in the form of '0000<Button 1><2><3><4> '
     }
+    static unsigned long LastTimeA = 0;                         //Set to 0, so the first call is FALSE
+    if (TickEveryXms(&LastTimeA, 50)) {                         //Execute every 50ms (so an error blink would look nice)
+      for (byte i = 0; i < AB; i++) {
+        if (bitRead(ButtonStatesA, i)) {
+          bitClear(ButtonStatesA, i);
+          if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonA[i].PIN_LED, !digitalRead(ButtonA[i].PIN_LED));
+        } else {
+          if (ButtonA[i].PIN_LED > 0) digitalWrite(ButtonA[i].PIN_LED, LOW);
+        }
+        if (bitRead(ButtonStatesB, i)) {
+          bitClear(ButtonStatesB, i);
+          if (ButtonB[i].PIN_LED > 0) digitalWrite(ButtonB[i].PIN_LED, !digitalRead(ButtonB[i].PIN_LED));
+        } else {
+          if (ButtonB[i].PIN_LED > 0) digitalWrite(ButtonB[i].PIN_LED, LOW);
+        }
+      }
+    }
+#ifdef SerialEnabled
+    Serial.println("Waiting on a button(s) " + String(ButtonStatesA, BIN) + "_" + String(ButtonStatesB, BIN) + " before starting up, wait ms=" + String(WaitUntil - millis()));
+#endif //SerialEnabled
   }
   for (byte i = 0; i < AB; i++) {
     digitalWrite(ButtonA[i].PIN_LED, LOW);                      //Make sure all LED's are off
@@ -104,6 +107,7 @@ void setup() {
   //===========================================================================
   //Start WIFI
   //===========================================================================
+  server.on("/test", handle_Test);                              //Declair the TEST urls
   byte Answer = WiFiManager.Start();
   if (Answer != 1) {
 #ifdef SerialEnabled
@@ -114,8 +118,14 @@ void setup() {
   WiFiManager.OTA_Enabled = false;
   WiFiManager.EnableSetup(true);                                //Start the server (if you also need it for other stuff)
   //===========================================================================
-  //Get Reset reason (This could be/is useful for power outage)
+  //Get Reset reason (This could be/is useful for power outage?)
   //===========================================================================
+#ifdef OTA_EnabledOnBoot
+  //WiFiManager.OTA_Enabled = true;
+#  ifdef SerialEnabled
+  Serial.println("Due to 'OTA_EnabledOnBoot' debug mode, OTA is enabled after boot by default");
+#  endif //SerialEnabled
+#endif //OtaEnabledOnBoot
 #ifdef SerialEnabled
   Serial.println("Done with boot, resetted due to " + ResetReasonToString(GetResetReason()) + " boottime=" + String(millis()));
 #endif //SerialEnabled
@@ -139,21 +149,31 @@ void loop() {
 
   for (byte i = 0; i < AB; i++) {
     Check(ButtonA[i].CheckButton(),                                             //The button state (contains info like if its just pressed and such)
-          Path_A[i] == "" ? Path_A[1] : Path_A[RotatedButtonID(RotationA, i)] ,  //The URL, if(non given){default to first given path}
-          Json_A[RotatedButtonID(RotationA, i)],                                 //The command to execute
+          Path_A[RotatedButtonID(RotationA, i)] == "" ? Path_A[0] : Path_A[RotatedButtonID(RotationA, i)] , //The URL, if(non given){default to first given path}
+          Json_A[RotatedButtonID(RotationA, i)],                                //The command to execute
           ButtonA[i].PIN_LED);                                                  //The LED corospanding to this button
     if (RotationB != UNUSED)
       Check(ButtonB[i].CheckButton(),
-            Path_B[i] == "" ? Path_B[1] : Path_A[RotatedButtonID(RotationB, i)] ,
+            Path_B[RotatedButtonID(RotationB, i)] == "" ? Path_B[0] : Path_B[RotatedButtonID(RotationB, i)] ,
             Json_B[RotatedButtonID(RotationB, i)],
             ButtonB[i].PIN_LED);
   }
 }
 //===========================================================================
-void Check(Button_Time Value, String Path, String Json, byte LEDpin) {
-#ifdef SerialEnabled
-  Serial.println(String(Value.Pressed) + " S=" + String(Value.StartPress) + " L=" + String(Value.PressedLong) + " SL=" + String(Value.StartLongPress) + " LEDpin=" + String(LEDpin) + " Path=" + String(Path) + " Json=" + String(Json));
-#endif //SerialEnabled
+byte Check(Button_Time Value, String Path, String Json, byte LEDpin) {
+  byte Answer = 0;
+#ifdef SerialEnabled_CheckButton
+  if (Value.StartPress or Value.Pressed or
+      Value.StartLongPress or Value.PressedLong or
+      Value.StartDoublePress or Value.DoublePress or
+      Value.StartRelease)                   //If there was an update
+    Serial.println("CB: S" + String(Value.StartPress) + "_" + String(Value.Pressed) + " "
+                   "L" + String(Value.StartLongPress) + "_" + String(Value.PressedLong) + " "
+                   "D" + String(Value.StartDoublePress) + "_" + String(Value.DoublePress) + " "
+                   "R" + String(Value.StartRelease) + "_" + String(Value.PressEnded) + " "
+                   "T" + String(Value.PressedTime) + " "
+                   "LEDpin=" + String(LEDpin) + " Path=" + String(Path) + " Json=" + String(Json));
+#endif //SerialEnabled_CheckButton
 
   if (Value.StartPress) {                                       //If button is just pressed in
 
@@ -162,10 +182,9 @@ void Check(Button_Time Value, String Path, String Json, byte LEDpin) {
 #endif //SerialEnabled_Speed
 
     if (LEDpin > 0) digitalWrite(LEDpin, HIGH);                 //If a LED pin was given; Set that buttons LED on
-    byte Answer = WiFiManager.DoRequest(Hub_IP, Hub_Port, Path, Json);
+    Answer = WiFiManager.DoRequest(Hub_IP, Hub_Port, Path, Json);
     if (LEDpin > 0) digitalWrite(LEDpin, LOW);                  //If a LED pin was given; Set that buttons LED off
 
-    Answer = Answer + 0;                                        //mask compiler warning if 'SerialEnabled' is not defined
 #ifdef SerialEnabled
     Serial.println("DoRequest executed with responce code '" + DoRequestReasonToString(Answer) + "'"); //The return codes can be found in "WiFiManager.cpp" in "CWiFiManager::DoRequest("
 #  ifdef SerialEnabled_Speed
@@ -176,10 +195,13 @@ void Check(Button_Time Value, String Path, String Json, byte LEDpin) {
   } else if (Value.StartLongPress) {
     WiFiManager.OTA_Enabled = !WiFiManager.OTA_Enabled;         //Toggle OTA on/off
     if (LEDpin > 0) digitalWrite(LEDpin, LOW);                  //If a LED pin was given; Set that buttons LED off
+#ifdef SerialEnabled
+    Serial.println("Toggled OTA " + String(WiFiManager.OTA_Enabled ? "ON" : "OFF"));
+#endif //SerialEnabled
   }
   if (Value.PressedLong) {                                      //If it is/was a long press
     if (Value.Pressed) {                                        //If we are still pressing
-      if (Value.PressedTime > Time_ESPrestartMS - 1000) {
+      if (Value.PressedTime > Time_ESPrestartMS - 2000) {
         if (LEDpin > 0) BlinkEveryMs(LEDpin, 10);               //If a LED pin was given; Blink that button LED
       } else
         digitalWrite(LED_BUILTIN, HIGH);
@@ -188,6 +210,7 @@ void Check(Button_Time Value, String Path, String Json, byte LEDpin) {
       if (LEDpin > 0) digitalWrite(LEDpin, LOW);        //If a LED pin was given; Blink that button LED
     }
   }
+  return Answer;
 }
 byte RotatedButtonID(byte Rotation, byte i) {
   switch (Rotation) {
@@ -216,6 +239,35 @@ byte RotatedButtonID(byte Rotation, byte i) {
       }
   }
   return 0;
+}
+void handle_Test() {
+  byte i = 0;
+  char m = 'A';
+  if (server.args()) {
+    String ArguName = server.argName(i);
+    ArguName.toUpperCase();
+    ArguName.substring(0, 1);
+    if (ArguName == "B") m = 'B';
+    i = server.arg(i).toInt();
+    if (i > 4) i = 3;
+    if (i < 1) i = 1;
+  }
+  String Path = Path_A[RotatedButtonID(RotationA, i - 1)] == "" ? Path_A[0] : Path_A[RotatedButtonID(RotationA, i - 1)];
+  String Json = Json_A[RotatedButtonID(RotationA, i - 1)];
+  byte LEDpin = ButtonA[i].PIN_LED;
+  if (m == 'B') {
+    Path = Path_B[RotatedButtonID(RotationB, i - 1)] == "" ? Path_B[0] : Path_B[RotatedButtonID(RotationB, i - 1)];
+    Json = Json_B[RotatedButtonID(RotationB, i - 1)];
+    LEDpin = ButtonB[i].PIN_LED;
+  }
+
+  Button_Time Dummy;
+  Dummy.StartPress = true;
+  byte Answer = Check(Dummy, Path, Json, LEDpin);
+
+  server.send(200, "text/plain", "DoRequest "  + String(m) + String(i) + " with result " + String(Answer) + "\n\n"
+              "" + String(Hub_IP) + ":" + String(Hub_Port) + String(Path) + "\n"
+              "" + String(Json));
 }
 //===========================================================================
 void ISR_A0() {
