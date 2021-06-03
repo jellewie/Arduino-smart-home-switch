@@ -11,10 +11,10 @@
 #include <rom/rtc.h>                                            //This is for rtc_get_reset_reason
 #define OTA_EnabledOnBoot
 #define WiFiManager_SerialEnabled
-//#define Button_SerialEnabled
+#define SerialEnabled_CheckButton         //CB:
+//#define Button_SerialEnabled            //BU:
 //#define SerialEnabled_Speed             //SP:
 //#define SerialEnabled_Convert           //CV:
-#define SerialEnabled_CheckButton
 #endif //SerialEnabled
 
 #include "WiFiManagerBefore.h"                                  //Define what options to use/include or to hook into WiFiManager
@@ -121,7 +121,7 @@ void setup() {
   //Get Reset reason (This could be/is useful for power outage?)
   //===========================================================================
 #ifdef OTA_EnabledOnBoot
-  //WiFiManager.OTA_Enabled = true;
+  WiFiManager.OTA_Enabled = true;
 #  ifdef SerialEnabled
   Serial.println("Due to 'OTA_EnabledOnBoot' debug mode, OTA is enabled after boot by default");
 #  endif //SerialEnabled
@@ -148,10 +148,10 @@ void loop() {
   }
 
   for (byte i = 0; i < AB; i++) {
-    Check(ButtonA[i].CheckButton(),                                             //The button state (contains info like if its just pressed and such)
+    Check(ButtonA[i].CheckButton(),                             //The button state (contains info like if its just pressed and such)
           Path_A[RotatedButtonID(RotationA, i)] == "" ? Path_A[0] : Path_A[RotatedButtonID(RotationA, i)] , //The URL, if(non given){default to first given path}
-          Json_A[RotatedButtonID(RotationA, i)],                                //The command to execute
-          ButtonA[i].PIN_LED);                                                  //The LED corospanding to this button
+          Json_A[RotatedButtonID(RotationA, i)],                //The command to execute
+          ButtonA[i].PIN_LED);                                  //The LED corospanding to this button
     if (RotationB != UNUSED)
       Check(ButtonB[i].CheckButton(),
             Path_B[RotatedButtonID(RotationB, i)] == "" ? Path_B[0] : Path_B[RotatedButtonID(RotationB, i)] ,
@@ -207,7 +207,7 @@ byte Check(Button_Time Value, String Path, String Json, byte LEDpin) {
         digitalWrite(LED_BUILTIN, HIGH);
     } else {
       digitalWrite(LED_BUILTIN, LOW);
-      if (LEDpin > 0) digitalWrite(LEDpin, LOW);        //If a LED pin was given; Blink that button LED
+      if (LEDpin > 0) digitalWrite(LEDpin, LOW);                //If a LED pin was given; Blink that button LED
     }
   }
   return Answer;
