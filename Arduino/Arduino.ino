@@ -107,6 +107,7 @@ void setup() {
   //===========================================================================
   //Start WIFI
   //===========================================================================
+  WiFi.setSleep(false);                                         //Disable going to sleep, basically the same as 'esp_wifi_set_ps(WIFI_PS_NONE)' https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.cpp#L1070
   server.on("/test", handle_Test);                              //Declair the TEST urls
   byte Answer = WiFiManager.Start();
   if (Answer != 1) {
