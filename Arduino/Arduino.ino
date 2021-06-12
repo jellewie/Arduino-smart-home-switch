@@ -6,6 +6,7 @@
 #endif
 
 //#define SerialEnabled
+#define Log_Speed
 
 #ifdef SerialEnabled
 #include <rom/rtc.h>                                            //This is for rtc_get_reset_reason
@@ -108,6 +109,9 @@ void setup() {
   //Start WIFI
   //===========================================================================
   WiFi.setSleep(false);                                         //Disable going to sleep, basically the same as 'esp_wifi_set_ps(WIFI_PS_NONE)' https://github.com/espressif/arduino-esp32/blob/master/libraries/WiFi/src/WiFiGeneric.cpp#L1070
+#ifdef Log_Speed
+  server.on("/log", handle_Log);
+#endif //Log_Speed
   server.on("/test", handle_Test);                              //Declair the TEST urls
   byte Answer = WiFiManager.Start();
   if (Answer != 1) {
@@ -178,20 +182,24 @@ byte Check(Button_Time Value, String Path, String Json, byte LEDpin) {
 
   if (Value.StartPress) {                                       //If button is just pressed in
 
-#ifdef SerialEnabled_Speed
+#if defined SerialEnabled_Speed || defined Log_Speed
     unsigned long StartMS = millis();
-#endif //SerialEnabled_Speed
+#endif //SerialEnabled_Speed or Log_Speed
 
     if (LEDpin > 0) digitalWrite(LEDpin, HIGH);                 //If a LED pin was given; Set that buttons LED on
     Answer = WiFiManager.DoRequest(Hub_IP, Hub_Port, Path, Json);
     if (LEDpin > 0) digitalWrite(LEDpin, LOW);                  //If a LED pin was given; Set that buttons LED off
 
-#ifdef SerialEnabled
-    Serial.println("DoRequest executed with responce code '" + DoRequestReasonToString(Answer) + "'"); //The return codes can be found in "WiFiManager.cpp" in "CWiFiManager::DoRequest("
-#  ifdef SerialEnabled_Speed
-    Serial.println("SP: Command processing time (start to end)=" + String(millis() - StartMS) + "ms");
-#  endif //SerialEnabled_Speed
-#endif //SerialEnabled
+#ifdef SerialEnabled_CheckButton
+    Serial.println("CB: DoRequest executed with responce code '" + DoRequestReasonToString(Answer) + "'"); //The return codes can be found in "WiFiManager.cpp" in "CWiFiManager::DoRequest("
+#endif //SerialEnabled_CheckButton
+#ifdef SerialEnabled_Speed
+    Serial.println("SP: Command processing time (start to end)=" + String(char(9)) + String(millis() - StartMS) + String(char(9)) + "ms");
+#endif //SerialEnabled_Speed
+#ifdef Log_Speed
+    unsigned int CPT = millis() - StartMS;
+    Log(CPT);
+#endif //Log_Speed
 
   } else if (Value.StartLongPress) {
     WiFiManager.OTA_Enabled = !WiFiManager.OTA_Enabled;         //Toggle OTA on/off
@@ -242,7 +250,7 @@ byte RotatedButtonID(byte Rotation, byte i) {
   return 0;
 }
 void handle_Test() {
-  byte i = 0;
+  byte i = 1;
   char m = 'A';
   if (server.args()) {
     String ArguName = server.argName(i);
@@ -266,10 +274,37 @@ void handle_Test() {
   Dummy.StartPress = true;
   byte Answer = Check(Dummy, Path, Json, LEDpin);
 
-  server.send(200, "text/plain", "DoRequest "  + String(m) + String(i) + " with result " + String(Answer) + "\n\n"
-              "" + String(Hub_IP) + ":" + String(Hub_Port) + String(Path) + "\n"
-              "" + String(Json));
+  server.send(200, "text/plain", "DoRequest " + String(m) + String(i) + " with result " + String(Answer) + "\n\n"
+              "" + String(Hub_IP) + ":" + String(Hub_Port) + Path + "\n"
+              "" + Json);
 }
+#ifdef Log_Speed
+//Logging without serial makes it way fater I guess?, lets try
+const byte LogAmount = 255;
+int LoggedTime[LogAmount];
+byte LogCounter = 0;
+void Log(unsigned int TimeMs) {
+  LoggedTime[LogCounter] = TimeMs;
+  if (LogCounter >= LogAmount)
+    LogCounter = 0;
+  else
+    LogCounter++;
+}
+void handle_Log() {
+  unsigned long LogTotal = 0;
+  unsigned int LogCount = 0;
+  String Answer = "";
+  for (byte i = 0; i < LogAmount; i++) {
+    if (LoggedTime[i] > 0) {
+      Answer = Answer + String(LoggedTime[i]) + "\n";
+      LogTotal = LogTotal + LoggedTime[i];
+      LogCount++;
+    }
+  }
+  unsigned int AVG_speed = LogTotal / LogCount;
+  server.send(200, "text/plain", "Average Command processing time (start to end) = " + String(AVG_speed) + " ms\n\n" + Answer);
+}
+#endif //Log_Speed
 //===========================================================================
 void ISR_A0() {
   ButtonA[0].Pinchange();
